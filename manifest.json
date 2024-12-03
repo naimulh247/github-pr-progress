@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub PR Progress",
+  "version": "1.0",
+  "description": "Shows progress bar for GitHub PR checkboxes",
+  "permissions": ["activeTab", "commands"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "toggle-overlay": {
+      "suggested_key": {
+        "default": "Alt+G",
+        "mac": "Alt+G"
+      },
+      "description": "Toggle PR Progress Overlay"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*/pull/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ]
+}
