@@ -9,7 +9,7 @@ function findChecklistGroups() {
     const groups = [];
     let currentGroup = null;
 
-    // Function to get the previous header or text node
+    // Get the previous header or text node
     function getPreviousHeader(element) {
         let previous = element;
         while (previous = previous.previousElementSibling) {
@@ -143,7 +143,7 @@ function createProgressOverlay() {
         overlay.remove();
     });
 
-    // Add drag functionality
+    // Drag functionality
     let isDragging = false;
     let currentX;
     let currentY;
@@ -191,20 +191,238 @@ function createProgressOverlay() {
     document.body.appendChild(overlay);
 }
 
-// Initial creation
-createProgressOverlay();
-
 // Update on checkbox changes
 document.addEventListener('change', (e) => {
     if (e.target.matches('.task-list-item-checkbox')) {
         createProgressOverlay();
+        updateMergeButtonState();
     }
 });
+
+// Update merge button state
+function updateMergeButtonState() {
+    const groups = findChecklistGroups();
+    if (groups.length === 0) return;
+
+    // Calculate total progress
+    const totalStats = groups.reduce((acc, group) => {
+        const completed = group.items.filter(item => 
+            item.querySelector('.task-list-item-checkbox').checked
+        ).length;
+        return {
+            total: acc.total + group.items.length,
+            completed: acc.completed + completed
+        };
+    }, { total: 0, completed: 0 });
+
+    const totalPercentage = Math.round((totalStats.completed / totalStats.total) * 100);
+    
+    // Find all merge buttons
+    const mergeButtons = document.querySelectorAll('.merge-box-button');
+    if (!mergeButtons.length) return;
+
+    if (totalPercentage < 100) {
+        // Disable all merge buttons
+        mergeButtons.forEach(button => {
+            button.disabled = true;
+            button.style.cursor = 'not-allowed';
+            button.style.opacity = '0.6';
+        });
+        
+        // Create or update tooltip
+        let tooltip = document.querySelector('.pr-checklist-tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.className = 'pr-checklist-tooltip';
+            document.body.appendChild(tooltip);
+        }
+
+        // Update tooltip content
+        tooltip.textContent = `Complete all checklist items before merging (${totalPercentage}% done)`;
+        
+        // Show tooltip on hover for any merge button
+        mergeButtons.forEach(button => {
+            button.addEventListener('mouseenter', () => {
+                const rect = button.getBoundingClientRect();
+                tooltip.style.display = 'block';
+                tooltip.style.top = `${rect.bottom + 5}px`;
+                tooltip.style.left = `${rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2)}px`;
+            });
+
+            button.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
+        });
+
+        // Also disable the menu items
+        const menuItems = document.querySelectorAll('.select-menu-item');
+        menuItems.forEach(item => {
+            item.style.opacity = '0.6';
+            item.style.cursor = 'not-allowed';
+            item.setAttribute('disabled', 'true');
+        });
+
+        // Clear completion flag when progress drops below 100%
+        sessionStorage.removeItem('prProgressComplete');
+    } else {
+        // Enable all merge buttons
+        mergeButtons.forEach(button => {
+            button.disabled = false;
+            button.style.cursor = 'pointer';
+            button.style.opacity = '1';
+        });
+        
+        // Enable menu items
+        const menuItems = document.querySelectorAll('.select-menu-item');
+        menuItems.forEach(item => {
+            item.style.opacity = '1';
+            item.style.cursor = 'pointer';
+            item.removeAttribute('disabled');
+        });
+        
+        // Remove tooltip if it exists
+        const tooltip = document.querySelector('.pr-checklist-tooltip');
+        if (tooltip) {
+            tooltip.remove();
+        }
+
+        // Trigger confetti if we just reached 100%
+        const progressKey = 'prProgressComplete';
+        const isAlreadyComplete = sessionStorage.getItem(progressKey);
+        
+        if (!isAlreadyComplete) {
+            createConfetti();
+            sessionStorage.setItem(progressKey, 'true');
+        }
+    }
+}
+
+// Wait for merge button to appear and update its state -> prevent unnecessary dom queries
+const observeMergeButton = () => {
+    const observer = new MutationObserver((mutations, obs) => {
+        const mergeButtons = document.querySelectorAll('.merge-box-button');
+        if (mergeButtons.length) {
+            updateMergeButtonState();
+            obs.disconnect(); // Stop observing once we find the buttons
+        }
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+};
+
+// inspired by https://codepen.io/Kcreation-MTech/pen/JjgqWQg
+function createConfetti() {
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    canvas.className = 'confetti-canvas';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    // Set canvas size
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Confetti parameters
+    const confettis = [];
+    const colors = ["#FF007A", "#7A00FF", "#00FF7A", "#FFD700", "#00D4FF"];
+    const confettiCount = 200;
+
+    // Create initial confetti
+    for (let i = 0; i < confettiCount; i++) {
+        confettis.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height - canvas.height, // Start above screen
+            size: Math.random() * 10 + 5,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            speedX: Math.random() * 3 - 1.5,
+            speedY: Math.random() * 5 + 2,
+            rotation: Math.random() * 360
+        });
+    }
+
+    // Animation function
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        confettis.forEach((confetti, index) => {
+            // Update position
+            confetti.x += confetti.speedX;
+            confetti.y += confetti.speedY;
+            confetti.rotation += confetti.speedX;
+            
+            // Draw confetti
+            ctx.save();
+            ctx.translate(confetti.x, confetti.y);
+            ctx.rotate((confetti.rotation * Math.PI) / 180);
+            ctx.fillStyle = confetti.color;
+            ctx.fillRect(-confetti.size / 2, -confetti.size / 2, confetti.size, confetti.size);
+            ctx.restore();
+            
+            // Remove confetti if it's off screen
+            if (confetti.y > canvas.height) {
+                confettis.splice(index, 1);
+            }
+        });
+        
+        // Continue animation if there are confetti left
+        if (confettis.length > 0) {
+            requestAnimationFrame(animate);
+        } else {
+            canvas.remove();
+        }
+    }
+
+    // Start animation
+    requestAnimationFrame(animate);
+}
+
+// Dark mode function
+function initializeDarkMode() {
+    // Get GitHub's current theme
+    const currentTheme = document.documentElement.getAttribute('data-color-mode') || 'light';
+    
+    // Add theme toggle button to controls
+    const controls = document.querySelector('.pr-progress-controls');
+    if (controls) {
+        const themeButton = document.createElement('button');
+        themeButton.className = 'pr-progress-button theme-toggle';
+        themeButton.innerHTML = currentTheme === 'dark' ? '☀️' : '🌙';
+        themeButton.title = currentTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+        themeButton.onclick = toggleTheme;
+        controls.insertBefore(themeButton, controls.firstChild);
+    }
+}
+
+function toggleTheme() {
+    const html = document.documentElement;
+    const currentTheme = html.getAttribute('data-color-mode');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    // Update GitHub's theme attributes
+    html.setAttribute('data-color-mode', newTheme);
+    
+    // Update button icon and title
+    const themeButton = document.querySelector('.theme-toggle');
+    if (themeButton) {
+        themeButton.innerHTML = newTheme === 'dark' ? '☀️' : '🌙';
+        themeButton.title = newTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    }
+}
+
+// Initial state
+observeMergeButton();
+updateMergeButtonState();
+initializeDarkMode();
+
+// Initial creation
+createProgressOverlay();
 
 // Listen for keyboard command
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.command === 'toggle-overlay') {
-        console.log('Toggle command received');
         const existingOverlay = document.querySelector('.pr-progress-overlay');
         if (existingOverlay) {
             existingOverlay.remove();
