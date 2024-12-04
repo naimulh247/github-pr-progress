@@ -1,12 +1,36 @@
+/* CSS Variables for theming */
+:root[data-color-mode="light"] {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f6f8fa;
+    --border-color: #e1e4e8;
+    --text-primary: #24292e;
+    --text-secondary: #586069;
+    --shadow-color: rgba(0,0,0,0.12);
+    --success-color: #2cbe4e;
+    --progress-bg: #ddd;
+}
+
+/* Dark mode variables */
+:root[data-color-mode="dark"] {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --border-color: #30363d;
+    --text-primary: #c9d1d9;
+    --text-secondary: #8b949e;
+    --shadow-color: rgba(0,0,0,0.3);
+    --success-color: #238636;
+    --progress-bg: #30363d;
+}
+
 .pr-progress-overlay {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: #ffffff;
-    border: 1px solid #e1e4e8;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    box-shadow: 0 1px 3px var(--shadow-color);
     z-index: 1000;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     min-width: 300px;
@@ -26,7 +50,7 @@
 .pr-progress-title {
     font-weight: 600;
     font-size: 14px;
-    color: #24292e;
+    color: var(--text-primary);
 }
 
 .pr-progress-controls {
@@ -39,7 +63,7 @@
     border: none;
     padding: 4px;
     cursor: pointer;
-    color: #586069;
+    color: var(--text-secondary);
     border-radius: 4px;
     display: flex;
     align-items: center;
@@ -47,8 +71,8 @@
 }
 
 .pr-progress-button:hover {
-    background-color: #f6f8fa;
-    color: #24292e;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
 }
 
 .pr-progress-summary {
@@ -64,9 +88,8 @@
     max-height: 0;
 }
 
-/* Rest of the existing styles */
 .pr-progress-bar {
-    background: #ddd;
+    background: var(--progress-bg);
     height: 8px;
     border-radius: 4px;
     overflow: hidden;
@@ -74,7 +97,7 @@
 }
 
 .pr-progress-fill {
-    background: #2cbe4e;
+    background: var(--success-color);
     height: 100%;
     transition: width 0.3s ease;
 }
@@ -83,12 +106,12 @@
     display: flex;
     justify-content: space-between;
     font-size: 12px;
-    color: #586069;
+    color: var(--text-secondary);
     margin-bottom: 12px;
 }
 
 .pr-progress-group {
-    border-top: 1px solid #e1e4e8;
+    border-top: 1px solid var(--border-color);
     padding-top: 8px;
     margin-top: 8px;
 }
@@ -96,7 +119,7 @@
 .pr-progress-group-title {
     font-size: 13px;
     font-weight: 600;
-    color: #444d56;
+    color: var(--text-primary);
     margin-bottom: 4px;
 }
 
@@ -137,4 +160,54 @@
     border-width: 0 5px 5px;
     border-style: solid;
     border-color: transparent transparent #24292e;
+}
+
+/* Confetti styles */
+.confetti-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+.confetti {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    bottom: 0;
+    z-index: 9999;
+    pointer-events: none;
+    border-radius: 50%;
+    transform-origin: center;
+}
+
+.confetti.animate {
+    animation: shoot-up 2s ease-out forwards, fall 3s ease-in forwards 1s;
+}
+
+@keyframes shoot-up {
+    0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+    }
+    
+    100% {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0.8;
+    }
+}
+
+@keyframes fall {
+    0% {
+        transform: translateY(-120vh) rotate(360deg);
+        opacity: 0.8;
+    }
+    
+    100% {
+        transform: translateY(0) rotate(720deg);
+        opacity: 0;
+    }
 }
