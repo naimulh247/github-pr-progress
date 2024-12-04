@@ -143,7 +143,7 @@ function createProgressOverlay() {
         overlay.remove();
     });
 
-    // Add drag functionality
+    // Drag functionality
     let isDragging = false;
     let currentX;
     let currentY;
@@ -191,15 +191,81 @@ function createProgressOverlay() {
     document.body.appendChild(overlay);
 }
 
-// Initial creation
-createProgressOverlay();
-
 // Update on checkbox changes
 document.addEventListener('change', (e) => {
     if (e.target.matches('.task-list-item-checkbox')) {
         createProgressOverlay();
+        updateMergeButtonState();
     }
 });
+
+//  Update merge button state
+function updateMergeButtonState() {
+    const groups = findChecklistGroups();
+    if (groups.length === 0) return;
+
+    // Calculate total progress
+    const totalStats = groups.reduce((acc, group) => {
+        const completed = group.items.filter(item => 
+            item.querySelector('.task-list-item-checkbox').checked
+        ).length;
+        return {
+            total: acc.total + group.items.length,
+            completed: acc.completed + completed
+        };
+    }, { total: 0, completed: 0 });
+
+    const totalPercentage = Math.round((totalStats.completed / totalStats.total) * 100);
+    
+    // Find merge button
+    const mergeButton = document.querySelector('.merge-box button.btn-merge');
+    if (!mergeButton) return;
+
+    if (totalPercentage < 100) {
+        // Disable merge button
+        mergeButton.disabled = true;
+        mergeButton.style.cursor = 'not-allowed';
+        
+        // Create or update tooltip
+        let tooltip = document.querySelector('.pr-checklist-tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.className = 'pr-checklist-tooltip';
+            document.body.appendChild(tooltip);
+        }
+
+        // Update tooltip content
+        tooltip.textContent = `Complete all checklist items before merging (${totalPercentage}% done)`;
+        
+        // Show tooltip on hover
+        mergeButton.addEventListener('mouseenter', () => {
+            const rect = mergeButton.getBoundingClientRect();
+            tooltip.style.display = 'block';
+            tooltip.style.top = `${rect.bottom + 5}px`;
+            tooltip.style.left = `${rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2)}px`;
+        });
+
+        mergeButton.addEventListener('mouseleave', () => {
+            tooltip.style.display = 'none';
+        });
+    } else {
+        // Enable merge button
+        mergeButton.disabled = false;
+        mergeButton.style.cursor = 'pointer';
+        
+        // Remove tooltip if exists
+        const tooltip = document.querySelector('.pr-checklist-tooltip');
+        if (tooltip) {
+            tooltip.remove();
+        }
+    }
+}
+
+// Initial state
+updateMergeButtonState();
+
+// Initial creation
+createProgressOverlay();
 
 // Listen for keyboard command
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

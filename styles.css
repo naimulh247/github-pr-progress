@@ -112,3 +112,29 @@
 .pr-progress-overlay[data-persist="true"] {
     transition: none;
 }
+
+/* Tooltip styles */
+.pr-checklist-tooltip {
+    position: fixed;
+    display: none;
+    background: #24292e;
+    color: #ffffff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    z-index: 1000;
+    text-align: center;
+    max-width: 300px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+.pr-checklist-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 0 5px 5px;
+    border-style: solid;
+    border-color: transparent transparent #24292e;
+}
