@@ -379,9 +379,43 @@ function createConfetti() {
     requestAnimationFrame(animate);
 }
 
+// Dark mode function
+function initializeDarkMode() {
+    // Get GitHub's current theme
+    const currentTheme = document.documentElement.getAttribute('data-color-mode') || 'light';
+    
+    // Add theme toggle button to controls
+    const controls = document.querySelector('.pr-progress-controls');
+    if (controls) {
+        const themeButton = document.createElement('button');
+        themeButton.className = 'pr-progress-button theme-toggle';
+        themeButton.innerHTML = currentTheme === 'dark' ? '☀️' : '🌙';
+        themeButton.title = currentTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+        themeButton.onclick = toggleTheme;
+        controls.insertBefore(themeButton, controls.firstChild);
+    }
+}
+
+function toggleTheme() {
+    const html = document.documentElement;
+    const currentTheme = html.getAttribute('data-color-mode');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    // Update GitHub's theme attributes
+    html.setAttribute('data-color-mode', newTheme);
+    
+    // Update button icon and title
+    const themeButton = document.querySelector('.theme-toggle');
+    if (themeButton) {
+        themeButton.innerHTML = newTheme === 'dark' ? '☀️' : '🌙';
+        themeButton.title = newTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    }
+}
+
 // Initial state
 observeMergeButton();
 updateMergeButtonState();
+initializeDarkMode();
 
 // Initial creation
 createProgressOverlay();
