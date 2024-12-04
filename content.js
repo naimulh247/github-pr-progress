@@ -154,46 +154,38 @@ function createProgressOverlay() {
     let currentY;
     let initialX;
     let initialY;
-    let xOffset = savedState.position?.x || 0;
-    let yOffset = savedState.position?.y || 0;
 
-    const header = overlay.querySelector('.pr-progress-header');
-    header.addEventListener('mousedown', dragStart);
-    document.addEventListener('mousemove', drag);
-    document.addEventListener('mouseup', dragEnd);
+    overlay.addEventListener('mousedown', e => {
+        if (e.target.closest('.pr-progress-header') && !e.target.closest('.pr-progress-controls')) {
+            isDragging = true;
+            initialX = e.clientX - (savedState.position?.x || 0);
+            initialY = e.clientY - (savedState.position?.y || 0);
+        }
+    });
 
-    function dragStart(e) {
-        if (e.target.closest('.pr-progress-controls')) return;
-        initialX = e.clientX - xOffset;
-        initialY = e.clientY - yOffset;
-        isDragging = true;
-    }
-
-    function drag(e) {
+    document.addEventListener('mousemove', e => {
         if (isDragging) {
             e.preventDefault();
             currentX = e.clientX - initialX;
             currentY = e.clientY - initialY;
-            xOffset = currentX;
-            yOffset = currentY;
-            setTranslate(currentX, currentY, overlay);
-            
-            // Save position
+
             savedState.position = { x: currentX, y: currentY };
             localStorage.setItem('prProgressState', JSON.stringify(savedState));
+            
+            overlay.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
         }
-    }
+    });
 
-    function setTranslate(xPos, yPos, el) {
-        el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
-    }
-
-    function dragEnd() {
+    document.addEventListener('mouseup', () => {
         isDragging = false;
-    }
+    });
 
-    // Add to page
     document.body.appendChild(overlay);
+
+    // Show confetti if all tasks are completed
+    if (totalStats.completed === totalStats.total && totalStats.total > 0) {
+        createConfetti();
+    }
 }
 
 // Update on checkbox changes
@@ -204,111 +196,32 @@ document.addEventListener('change', (e) => {
     }
 });
 
-// Update merge button state
 function updateMergeButtonState() {
+    const mergeButton = document.querySelector('.merge-message .btn-group-merge .js-merge-commit-button');
+    if (!mergeButton) return;
+
     const groups = findChecklistGroups();
     if (groups.length === 0) return;
 
-    // Calculate total progress
-    const totalStats = groups.reduce((acc, group) => {
-        const completed = group.items.filter(item => 
-            item.querySelector('.task-list-item-checkbox').checked
-        ).length;
-        return {
-            total: acc.total + group.items.length,
-            completed: acc.completed + completed
-        };
-    }, { total: 0, completed: 0 });
+    const allTasks = groups.reduce((acc, group) => [...acc, ...group.items], []);
+    const allCompleted = allTasks.every(item => item.querySelector('.task-list-item-checkbox').checked);
 
-    const totalPercentage = Math.round((totalStats.completed / totalStats.total) * 100);
-    
-    // Find all merge buttons
-    const mergeButtons = document.querySelectorAll('.merge-box-button');
-    if (!mergeButtons.length) return;
-
-    if (totalPercentage < 100) {
-        // Disable all merge buttons
-        mergeButtons.forEach(button => {
-            button.disabled = true;
-            button.style.cursor = 'not-allowed';
-            button.style.opacity = '0.6';
-        });
-        
-        // Create or update tooltip
-        let tooltip = document.querySelector('.pr-checklist-tooltip');
-        if (!tooltip) {
-            tooltip = document.createElement('div');
-            tooltip.className = 'pr-checklist-tooltip';
-            document.body.appendChild(tooltip);
-        }
-
-        // Update tooltip content
-        tooltip.textContent = `Complete all checklist items before merging (${totalPercentage}% done)`;
-        
-        // Show tooltip on hover for any merge button
-        mergeButtons.forEach(button => {
-            button.addEventListener('mouseenter', () => {
-                const rect = button.getBoundingClientRect();
-                tooltip.style.display = 'block';
-                tooltip.style.top = `${rect.bottom + 5}px`;
-                tooltip.style.left = `${rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2)}px`;
-            });
-
-            button.addEventListener('mouseleave', () => {
-                tooltip.style.display = 'none';
-            });
-        });
-
-        // Also disable the menu items
-        const menuItems = document.querySelectorAll('.select-menu-item');
-        menuItems.forEach(item => {
-            item.style.opacity = '0.6';
-            item.style.cursor = 'not-allowed';
-            item.setAttribute('disabled', 'true');
-        });
-
-        // Clear completion flag when progress drops below 100%
-        sessionStorage.removeItem('prProgressComplete');
+    if (!allCompleted) {
+        mergeButton.disabled = true;
+        mergeButton.title = 'Complete all checklist items before merging';
     } else {
-        // Enable all merge buttons
-        mergeButtons.forEach(button => {
-            button.disabled = false;
-            button.style.cursor = 'pointer';
-            button.style.opacity = '1';
-        });
-        
-        // Enable menu items
-        const menuItems = document.querySelectorAll('.select-menu-item');
-        menuItems.forEach(item => {
-            item.style.opacity = '1';
-            item.style.cursor = 'pointer';
-            item.removeAttribute('disabled');
-        });
-        
-        // Remove tooltip if it exists
-        const tooltip = document.querySelector('.pr-checklist-tooltip');
-        if (tooltip) {
-            tooltip.remove();
-        }
-
-        // Trigger confetti if we just reached 100%
-        const progressKey = 'prProgressComplete';
-        const isAlreadyComplete = sessionStorage.getItem(progressKey);
-        
-        if (!isAlreadyComplete) {
-            createConfetti();
-            sessionStorage.setItem(progressKey, 'true');
-        }
+        mergeButton.disabled = false;
+        mergeButton.title = '';
     }
 }
 
 // Wait for merge button to appear and update its state -> prevent unnecessary dom queries
-const observeMergeButton = () => {
+function observeMergeButton() {
     const observer = new MutationObserver((mutations, obs) => {
-        const mergeButtons = document.querySelectorAll('.merge-box-button');
-        if (mergeButtons.length) {
+        const mergeButton = document.querySelector('.merge-message .btn-group-merge .js-merge-commit-button');
+        if (mergeButton) {
             updateMergeButtonState();
-            obs.disconnect(); // Stop observing once we find the buttons
+            obs.disconnect();
         }
     });
 
@@ -316,62 +229,109 @@ const observeMergeButton = () => {
         childList: true,
         subtree: true
     });
-};
+}
 
 // inspired by https://codepen.io/Kcreation-MTech/pen/JjgqWQg
 function createConfetti() {
     // Create canvas
     const canvas = document.createElement('canvas');
-    canvas.className = 'confetti-canvas';
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.pointerEvents = 'none';
+    canvas.style.zIndex = '9999';
     document.body.appendChild(canvas);
-    const ctx = canvas.getContext('2d');
 
-    // Set canvas size
+    const ctx = canvas.getContext('2d');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // Confetti parameters
+    // Confetti particles
     const confettis = [];
-    const colors = ["#FF007A", "#7A00FF", "#00FF7A", "#FFD700", "#00D4FF"];
-    const confettiCount = 200;
+    const confettiCount = 300;
+    const gravity = 0.5;
+    const terminalVelocity = 5;
+    const drag = 0.075;
+    const colors = [
+        { front: '#00FF00', back: '#4CAF50' },  // Green
+        { front: '#2196F3', back: '#1976D2' },  // Blue
+        { front: '#F44336', back: '#D32F2F' },  // Red
+        { front: '#FFEB3B', back: '#FBC02D' }   // Yellow
+    ];
 
-    // Create initial confetti
+    // Confetti class
+    class Confetti {
+        constructor() {
+            this.randomize();
+        }
+
+        randomize() {
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            this.color = color.front;
+            this.dimensions = {
+                x: (Math.random() * 10) + 5,
+                y: (Math.random() * 10) + 5
+            };
+            this.position = {
+                x: Math.random() * canvas.width,
+                y: -(Math.random() * canvas.height * 2)
+            };
+            this.rotation = Math.random() * 2 * Math.PI;
+            this.scale = { x: 1, y: 1 };
+            this.velocity = {
+                x: (Math.random() * 20) - 10,
+                y: (Math.random() * 10) + 3
+            };
+        }
+
+        update() {
+            // Update velocity
+            this.velocity.x += (Math.random() * 2) - 1;
+            this.velocity.y = Math.min(terminalVelocity, this.velocity.y + gravity);
+
+            // Update position
+            this.position.x += this.velocity.x;
+            this.position.y += this.velocity.y;
+            this.rotation += 0.1;
+
+            // Check bounds
+            if (this.position.y >= canvas.height) {
+                this.position.y = -(Math.random() * canvas.height * 0.5);
+                this.position.x = Math.random() * canvas.width;
+            }
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.position.x, this.position.y);
+            ctx.rotate(this.rotation);
+            ctx.fillStyle = this.color;
+            ctx.fillRect(-this.dimensions.x * 0.5, -this.dimensions.y * 0.5, this.dimensions.x, this.dimensions.y);
+            ctx.restore();
+        }
+    }
+
+    // Create confetti particles
     for (let i = 0; i < confettiCount; i++) {
-        confettis.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height - canvas.height, // Start above screen
-            size: Math.random() * 10 + 5,
-            color: colors[Math.floor(Math.random() * colors.length)],
-            speedX: Math.random() * 3 - 1.5,
-            speedY: Math.random() * 5 + 2,
-            rotation: Math.random() * 360
-        });
+        confettis.push(new Confetti());
     }
 
     // Animation function
     function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
+
         confettis.forEach((confetti, index) => {
-            // Update position
-            confetti.x += confetti.speedX;
-            confetti.y += confetti.speedY;
-            confetti.rotation += confetti.speedX;
-            
-            // Draw confetti
-            ctx.save();
-            ctx.translate(confetti.x, confetti.y);
-            ctx.rotate((confetti.rotation * Math.PI) / 180);
-            ctx.fillStyle = confetti.color;
-            ctx.fillRect(-confetti.size / 2, -confetti.size / 2, confetti.size, confetti.size);
-            ctx.restore();
-            
+            confetti.update();
+            confetti.draw();
+
             // Remove confetti if it's off screen
-            if (confetti.y > canvas.height) {
+            if (confetti.position.y > canvas.height * 1.5) {
                 confettis.splice(index, 1);
             }
         });
-        
+
         // Continue animation if there are confetti left
         if (confettis.length > 0) {
             requestAnimationFrame(animate);
@@ -457,15 +417,3 @@ initializeDarkMode();
 
 // Initial creation
 createProgressOverlay();
-
-// Listen for keyboard command
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.command === 'toggle-overlay') {
-        const existingOverlay = document.querySelector('.pr-progress-overlay');
-        if (existingOverlay) {
-            existingOverlay.remove();
-        } else {
-            createProgressOverlay();
-        }
-    }
-});
