@@ -215,7 +215,6 @@ function updateMergeButtonState() {
     }
 }
 
-// Wait for merge button to appear and update its state -> prevent unnecessary dom queries
 function observeMergeButton() {
     const observer = new MutationObserver((mutations, obs) => {
         const mergeButton = document.querySelector('.merge-message .btn-group-merge .js-merge-commit-button');
