@@ -217,14 +217,17 @@ function updateMergeButtonState() {
 
     const totalPercentage = Math.round((totalStats.completed / totalStats.total) * 100);
     
-    // Find merge button
-    const mergeButton = document.querySelector('.merge-box button.btn-merge');
-    if (!mergeButton) return;
+    // Find all merge buttons
+    const mergeButtons = document.querySelectorAll('.merge-box-button');
+    if (!mergeButtons.length) return;
 
     if (totalPercentage < 100) {
-        // Disable merge button
-        mergeButton.disabled = true;
-        mergeButton.style.cursor = 'not-allowed';
+        // Disable all merge buttons
+        mergeButtons.forEach(button => {
+            button.disabled = true;
+            button.style.cursor = 'not-allowed';
+            button.style.opacity = '0.6';
+        });
         
         // Create or update tooltip
         let tooltip = document.querySelector('.pr-checklist-tooltip');
@@ -237,21 +240,42 @@ function updateMergeButtonState() {
         // Update tooltip content
         tooltip.textContent = `Complete all checklist items before merging (${totalPercentage}% done)`;
         
-        // Show tooltip on hover
-        mergeButton.addEventListener('mouseenter', () => {
-            const rect = mergeButton.getBoundingClientRect();
-            tooltip.style.display = 'block';
-            tooltip.style.top = `${rect.bottom + 5}px`;
-            tooltip.style.left = `${rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2)}px`;
+        // Show tooltip on hover for any merge button
+        mergeButtons.forEach(button => {
+            button.addEventListener('mouseenter', () => {
+                const rect = button.getBoundingClientRect();
+                tooltip.style.display = 'block';
+                tooltip.style.top = `${rect.bottom + 5}px`;
+                tooltip.style.left = `${rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2)}px`;
+            });
+
+            button.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
         });
 
-        mergeButton.addEventListener('mouseleave', () => {
-            tooltip.style.display = 'none';
+        // Also disable the menu items
+        const menuItems = document.querySelectorAll('.select-menu-item');
+        menuItems.forEach(item => {
+            item.style.opacity = '0.6';
+            item.style.cursor = 'not-allowed';
+            item.setAttribute('disabled', 'true');
         });
     } else {
-        // Enable merge button
-        mergeButton.disabled = false;
-        mergeButton.style.cursor = 'pointer';
+        // Enable all merge buttons
+        mergeButtons.forEach(button => {
+            button.disabled = false;
+            button.style.cursor = 'pointer';
+            button.style.opacity = '1';
+        });
+        
+        // Enable menu items
+        const menuItems = document.querySelectorAll('.select-menu-item');
+        menuItems.forEach(item => {
+            item.style.opacity = '1';
+            item.style.cursor = 'pointer';
+            item.removeAttribute('disabled');
+        });
         
         // Remove tooltip if exists
         const tooltip = document.querySelector('.pr-checklist-tooltip');
@@ -261,7 +285,24 @@ function updateMergeButtonState() {
     }
 }
 
+// Wait for merge button to appear and update its state
+const observeMergeButton = () => {
+    const observer = new MutationObserver((mutations, obs) => {
+        const mergeButtons = document.querySelectorAll('.merge-box-button');
+        if (mergeButtons.length) {
+            updateMergeButtonState();
+            obs.disconnect(); // Stop observing once we find the buttons
+        }
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+};
+
 // Initial state
+observeMergeButton();
 updateMergeButtonState();
 
 // Initial creation
@@ -270,7 +311,6 @@ createProgressOverlay();
 // Listen for keyboard command
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.command === 'toggle-overlay') {
-        console.log('Toggle command received');
         const existingOverlay = document.querySelector('.pr-progress-overlay');
         if (existingOverlay) {
             existingOverlay.remove();
